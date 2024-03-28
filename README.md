@@ -15,6 +15,7 @@ joint1-5是控制5个轴旋转，gripper是控制夹具
 
 ![image](https://github.com/zybing1102/Dofbot-mimic/assets/72898091/035807e0-dfc7-431b-ad6e-097759bb6cdb)
 ![image](https://github.com/zybing1102/Dofbot-mimic/assets/72898091/e5dd6fb8-786d-473e-84e2-134aa2100cc6)
+
 文件目录介绍：
 dofbot_description:urdf xacro stl文件
 dofbot_movit_config:launch config配置文件
