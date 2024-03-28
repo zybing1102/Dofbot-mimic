@@ -1,0 +1,477 @@
+<?xml version="1.0"?>
+<robot name="as_arm" xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+    <!-- Constants -->
+    <xacro:property name="deg_to_rad" value="0.01745329251994329577"/>  <!-- equal to PI/180-->
+    <xacro:property name="MATTER_MASS" value="0.1"/>
+    <xacro:property name="M_SCALE" value="0.001 0.001 0.001"/>
+    <xacro:property name="M_PI" value="3.14159"/>
+    <xacro:property name="SINK_WIDTH" value="0.2"/>
+    <xacro:property name="SINK_WALL_THICK" value="0.005"/>
+    <xacro:property name="SINK_DEPTH" value="0.025"/>
+
+    <!-- Define materials mass -->
+    <xacro:macro name="inertial_matrix" params="mass">
+        <inertial>
+            <mass value="${mass}"/>
+            <inertia ixx="1.0" ixy="0.0" ixz="0.0" iyy="0.5" iyz="0.0" izz="1.0"/>
+        </inertial>
+    </xacro:macro>
+
+    <xacro:macro name="transmission_block" params="joint_name">
+        <transmission name="tran1">
+            <type>transmission_interface/SimpleTransmission</type>
+            <joint name="${joint_name}">
+                <hardwareInterface>EffortJointInterface</hardwareInterface>
+            </joint>
+            <actuator name="motor1">
+                <hardwareInterface>EffortJointInterface</hardwareInterface>
+                <mechanicalReduction>1</mechanicalReduction>
+            </actuator>
+        </transmission>
+    </xacro:macro>
+    <xacro:macro name="mimic_joint_plugin_gazebo" params="name_prefix parent_joint mimic_joint has_pid:=false multiplier:=1.0 offset:=0 sensitiveness:=0.0 max_effort:=1.0 robot_namespace:=''">
+    <gazebo>
+      <plugin name="${name_prefix}mimic_joint_plugin" filename="libroboticsgroup_gazebo_mimic_joint_plugin.so">
+        <joint>${parent_joint}</joint>
+        <mimicJoint>${mimic_joint}</mimicJoint>
+        <xacro:if value="${has_pid}">                     <!-- if set to true, PID parameters from "/gazebo_ros_control/pid_gains/${mimic_joint}" are loaded -->
+          <hasPID />
+        </xacro:if>
+        <multiplier>${multiplier}</multiplier>
+        <offset>${offset}</offset>
+        <sensitiveness>${sensitiveness}</sensitiveness>   <!-- if absolute difference between setpoint and process value is below this threshold, do nothing; 0.0 = disable [rad] -->
+        <maxEffort>${max_effort}</maxEffort>              <!-- only taken into account if has_pid:=true [Nm] -->
+        <xacro:unless value="${robot_namespace == ''}">
+          <robotNamespace>${robot_namespace}</robotNamespace>
+        </xacro:unless>
+      </plugin>
+    </gazebo>
+  </xacro:macro>
+    <xacro:macro name="controller_plugin_gazebo" params="robot_namespace:=''">
+    <gazebo>
+      <plugin name="gazebo_ros_control" filename="libgazebo_ros_control.so">
+        <xacro:unless value="${robot_namespace == ''}">
+          <robotNamespace>${robot_namespace}</robotNamespace>
+        </xacro:unless>
+        <controlPeriod>0.001</controlPeriod>
+      </plugin>
+    </gazebo>
+  </xacro:macro>
+
+  <xacro:controller_plugin_gazebo />
+    <gazebo>
+        <plugin name="gazebo_ros_control" filename="libgazebo_ros_control.so">
+            <robotNamespace>/as_arm</robotNamespace>
+        </plugin>
+    </gazebo>
+    <link name="world"/>
+    <!--joint name="world_joint" type="fixed">
+        <origin xyz="0 0 0.04" rpy="0 0 0"/>
+        <parent link="world"/>
+        <child link="bottom_link"/>
+    </joint-->
+
+    <!-- ////  bottom link -> base link  ////-->
+    <link name="base_link">
+    <xacro:inertial_matrix mass="${MATTER_MASS}"/>
+        <visual>
+            <origin xyz="0 0 0" rpy="0 0 0"/>
+            <geometry>
+                <mesh filename="package://dofbot_description/meshes/base_link.STL"/>
+            </geometry>
+            <material name="">
+                <color rgba="0 0.7 0 1"/>
+            </material>
+        </visual>
+        <collision>
+            <origin xyz=" 0 0 0" rpy="0 0 0"/>
+            <geometry>
+                <mesh filename="package://dofbot_description/meshes/base_link.STL"/>
+            </geometry>
+        </collision>
+    </link>
+
+    <gazebo reference="base_link">
+        <material name=""><color rgba="0 0.7 0 1"/></material>
+    </gazebo>
+
+    <joint name="base_joint" type="fixed">
+        <origin xyz="0.0 0.0 0" rpy="0 0 0"/>
+        <parent link="world"/>
+        <child link="base_link"/>
+    </joint>
+
+
+    <!-- ////  base link -> shoulder link  ////-->
+
+    <link name="arm_link1">
+        <xacro:inertial_matrix mass="${MATTER_MASS}"/>
+        <visual>
+            <origin xyz="0 0 0" rpy="0 0 0"/>
+            <geometry>
+                <mesh filename="package://dofbot_description/meshes/visual/arm_link1.STL"/>
+            </geometry>
+            <material name="">
+                <color rgba="0.7 0.7 0.7 1"/>
+            </material>
+        </visual>
+        <collision>
+            <origin xyz="0 0 0" rpy="0 0 0"/>
+            <geometry>
+                <mesh filename="package://dofbot_description/meshes/collision/arm_link1.STL"/>
+            </geometry>
+        </collision>
+        
+    </link>
+
+    <gazebo reference="arm_link1">
+        <color rgba="0.7 0.7 0.7 1"/>
+    </gazebo>
+
+    <joint name="arm_joint1" type="revolute">
+        <parent link="base_link"/>
+        <child link="arm_link1"/>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <axis xyz="0 0 -1"/>
+        <limit effort="300" velocity="1" lower="-${M_PI/2}" upper="${M_PI/2}"/>
+        <dynamics damping="50" friction="1"/>
+    </joint>
+
+
+    <!-- ////  shoulder link -> elbow link  ////-->
+
+    <link name="shoulder_link">
+        <visual>
+            <origin xyz="0 0 0" rpy="0 0 0"/>
+            <geometry>
+                <mesh filename="package://dofbot_description/meshes/visual/arm_link2.STL"/>
+            </geometry>
+            <material name="">
+                <color rgba="0 0.7 0 1"/>
+            </material>
+        </visual>
+        <collision>
+            <origin xyz="0 0 0" rpy="0 0 0"/>
+            <geometry>
+                <mesh filename="package://dofbot_description/meshes/collision/arm_link2.STL"/>
+            </geometry>
+        </collision>
+        <xacro:inertial_matrix mass="${MATTER_MASS}"/>
+    </link>
+
+    <gazebo reference="shoulder_link">
+        <material><color rgba="0 0.7 0 1"/></material>
+    </gazebo>
+
+    <joint name="shoulder_joint" type="revolute">
+        <parent link="arm_link1"/>
+        <child link="shoulder_link"/>
+        <origin xyz="0 0 0.0405" rpy="-1.5708 0 0"/>
+        <axis xyz="0 0 -1"/>
+        <limit effort="300" velocity="1" lower="-${85*deg_to_rad}" upper="${85*deg_to_rad}"/>
+        <dynamics damping="50" friction="1"/>
+    </joint>
+
+
+    <!-- ////  elbow link -> wrist flex link  ////-->
+    <link name="elbow_link">
+        <visual>
+            <origin xyz="0 0 0" rpy="0 0 0"/>
+            <geometry>
+                <mesh filename="package://dofbot_description/meshes/visual/arm_link3.STL"/>
+            </geometry>
+            <material name="">
+                <color rgba="0.7 0.7 0.7 1"/>
+            </material>
+        </visual>
+        <collision>
+            <origin xyz="0 0 0" rpy="0 0 0"/>
+            <geometry>
+                <mesh filename="package://dofbot_description/meshes/collision/arm_link3.STL"/>
+            </geometry>
+        </collision>
+        <xacro:inertial_matrix mass="${MATTER_MASS}"/>
+    </link>
+
+    <gazebo reference="elbow_link">
+        <material><material name="">
+                <color rgba="0.7 0.7 0.7 1"/>
+            </material></material>
+    </gazebo>
+
+    <joint name="elbow_joint" type="revolute">
+        <parent link="shoulder_link"/>
+        <child link="elbow_link"/>
+        <origin xyz="0 -0.0829 0" rpy="0 0 0"/>
+        <axis xyz="0 0 -1"/>
+        <limit effort="300" velocity="1" lower="-${60*deg_to_rad}" upper="${90*deg_to_rad}"/>
+        <dynamics damping="50" friction="1"/>
+    </joint>
+
+
+    <!-- ////  wrist flex link -> wrist rot link  ////-->
+    <link name="wrist_flex_link">
+        <visual>
+            <origin xyz="0 0 0" rpy="0 0 0"/>
+            <geometry>
+                <mesh filename="package://dofbot_description/meshes/visual/arm_link4.STL"/>
+            </geometry>
+            <material name="">
+                <color rgba="0 0.7 0 1"/>
+            </material>
+        </visual>
+        <collision>
+            <origin xyz="0 0 0" rpy="0 0 0"/>
+            <geometry>
+                <mesh filename="package://dofbot_description/meshes/collision/arm_link4.STL"/>
+            </geometry>
+        </collision>
+        <xacro:inertial_matrix mass="${MATTER_MASS}"/>
+    </link>
+
+    <gazebo reference="wrist_flex_link">
+        <material><color rgba="0 0.7 0 1"/></material>
+    </gazebo>
+
+    <joint name="wrist_flex_joint" type="revolute">
+        <parent link="elbow_link"/>
+        <child link="wrist_flex_link"/>
+        <origin xyz="0 -0.0829 0" rpy="0 0 0"/>
+        <axis xyz="0 0 -1"/>
+        <limit effort="300" velocity="1" lower="-${M_PI/2}" upper="${M_PI/2}"/>
+        <dynamics damping="50" friction="1"/>
+    </joint>
+
+
+    <!-- ////  wrist rot link -> gripper link  ////-->
+    <link name="wrist_rot_link">
+        <visual>
+            <origin xyz="0 0 0" rpy="0 0 0"/>
+            <geometry>
+                <mesh filename="package://dofbot_description/meshes/visual/arm_link5.STL"/>
+            </geometry>
+            <material name="">
+                <color rgba="0.7 0.7 0.7 1"/>
+            </material>
+        </visual>
+        <collision>
+            <origin xyz="0 0 0" rpy="0 0 0"/>
+            <geometry>
+                <mesh filename="package://dofbot_description/meshes/collision/arm_link5.STL"/>
+            </geometry>
+        </collision>
+        <xacro:inertial_matrix mass="${MATTER_MASS}"/>
+    </link>
+
+    <gazebo reference="wrist_rot_link">
+        <material><color rgba="0.7 0.7 0.7 1"/></material>
+    </gazebo>
+
+    <!--xacro:include filename="$(find as_arm_description)/urdf/camera.xacro"/>
+    <xacro:include filename="$(find as_arm_description)/urdf/camera_y.xacro"/>
+    <xacro:include filename="$(find as_arm_description)/urdf/sink.xacro"/-->
+    
+    <joint name="wrist_rot_joint" type="revolute">
+        <parent link="wrist_flex_link"/>
+        <child link="wrist_rot_link"/>
+        <origin xyz="-0.00215 -0.17455 0" rpy="1.5708 0 0"/>
+        <axis xyz="0 0 1"/>
+        <limit effort="300" velocity="1" lower="-${M_PI/2}" upper="${M_PI/2}"/>
+        <dynamics damping="50" friction="1"/>
+    </joint>
+
+    <!-- ////  wrist rot link -> gripper bottom link  ////-->
+    <link name="gripper_bottom_link">
+        <visual>
+            <origin xyz="0 0 0" rpy="0 0 0"/>
+            <geometry>
+                <mesh filename="package://dofbot_description/meshes/visual/rlink1.STL"/>
+            </geometry>
+            <material name="">
+                <color rgba="0 0.7 0 1"/>
+            </material>
+        </visual>
+        <collision>
+            <origin xyz="0 0 0" rpy="0 0 0"/>
+            <geometry>
+                <mesh filename="package://dofbot_description/meshes/collision/rlink1.STL"/>
+            </geometry>
+        </collision>
+        <xacro:inertial_matrix mass="${MATTER_MASS}"/>
+    </link>
+
+    <gazebo reference="gripper_bottom_link">
+        <material><color rgba="0 0.7 0 1"/></material>
+    </gazebo>
+
+    <joint name="gripper_joint" type="revolute">
+        <parent link="wrist_rot_link"/>
+        <child link="gripper_bottom_link"/>
+        <origin xyz="-0.0035 -0.012625 -0.0685" rpy="0 -1.5708 0"/>
+        <axis xyz="0 0 1"/>
+        <limit effort="300" velocity="1" lower="-${M_PI/2}" upper="0"/>
+        <dynamics damping="50" friction="1"/>
+    </joint>
+
+    <link name="rlink2">
+        <visual>
+            <origin xyz="0 0 0" rpy="0 0 0"/>
+            <geometry>
+                <mesh filename="package://dofbot_description/meshes/visual/rlink2.STL"/>
+            </geometry>
+            <material name="">
+                <color rgba="0 0.7 0 1"/>
+            </material>
+        </visual>
+        <collision>
+            <origin xyz="0 0 0" rpy="0 0 0"/>
+            <geometry>
+                <mesh filename="package://dofbot_description/meshes/collision/rlink2.STL"/>
+            </geometry>
+        </collision>
+        <xacro:inertial_matrix mass="${MATTER_MASS}"/>
+    </link>
+    
+    <joint name="rlink_joint2" type="revolute">
+        <origin xyz="0.03 -0.00075429 0" rpy="0 0 0"/>
+        <parent link="gripper_bottom_link"/>
+        <child link="rlink2"/>
+        <axis xyz="0 0 1"/>
+        <limit effort="300" velocity="1" lower="-${M_PI/2}" upper="${M_PI/2}"/>
+        <mimic joint="gripper_joint" multiplier="-1" offset="0" />
+    </joint>
+
+    <link name="rlink3">
+        <visual>
+            <origin xyz="0 0 0" rpy="0 0 0"/>
+            <geometry>
+                 <mesh filename="package://dofbot_description/meshes/visual/rlink3.STL"/>
+            </geometry>
+            <material name="">
+                <color rgba="0 0.7 0 1"/>
+            </material>
+        </visual>
+        <collision>
+            <origin xyz="0 0 0" rpy="0 0 0"/>
+            <geometry>
+                <mesh filename="package://dofbot_description/meshes/collision/rlink3.STL"/>
+            </geometry>
+        </collision>
+        <xacro:inertial_matrix mass="${MATTER_MASS}"/>
+    </link>
+    <joint name="rlink_joint3" type="revolute">
+        <origin xyz="-0.0035 -0.0045 -0.0505" rpy="0 -1.5708 0"/>
+        <parent link="wrist_rot_link"/>
+        <child link="rlink3"/>
+        <axis xyz="0 0 1"/>
+        <limit effort="300" velocity="1" lower="-${M_PI/2}" upper="${M_PI/2}"/>
+        <mimic joint="gripper_joint" multiplier="1" offset="0" />
+    </joint>
+
+    <!--link name="llink1">
+        <visual>
+            <origin xyz="0 0 0" rpy="0 0 0"/>
+            <geometry>
+                <mesh filename="package://dofbot_description/meshes/visual/llink1.STL"/>
+            </geometry>
+            <material name="">
+                <color rgba="0 0.7 0 1"/>
+            </material>
+        </visual>
+        <collision>
+            <origin xyz="0 0 0" rpy="0 0 0"/>
+            <geometry>
+                <mesh filename="package://dofbot_description/meshes/collision/llink1.STL"/>
+            </geometry>
+        </collision>
+        <xacro:inertial_matrix mass="${MATTER_MASS}"/>
+    </link>
+    <joint name="llink_joint1" type="continuous">
+        <origin xyz="-0.0035 0.012375 -0.0685" rpy="0 -1.5708 0"/>
+        <parent link="wrist_rot_link"/>
+        <child link="llink1"/>
+        <axis xyz="0 0 1"/>
+        <mimic joint="gripper_joint" multiplier="-1"/>
+        <limit effort="300" velocity="1" lower="-${M_PI/2}" upper="0"/>
+    </joint>
+    <xacro:mimic_joint_plugin_gazebo name_prefix="llink_joint1"
+    parent_joint="gripper_joint" mimic_joint="llink_joint1"
+    has_pid="false" multiplier="-1.0" max_effort="10.0" />
+    <link name="llink2">
+        <visual>
+            <origin xyz="0 0 0" rpy="0 0 0"/>
+            <geometry>
+                <mesh filename="package://dofbot_description/meshes/visual/llink2.STL"/>
+            </geometry>
+            <material name="">
+                <color rgba="0 0.7 0 1"/>
+            </material>
+        </visual>
+        <collision>
+            <origin xyz="0 0 0" rpy="0 0 0"/>
+            <geometry>
+                <mesh filename="package://dofbot_description/meshes/collision/llink2.STL"/>
+            </geometry>
+        </collision>
+        <xacro:inertial_matrix mass="${MATTER_MASS}"/>
+    </link>
+    <joint name="llink_joint2" type="continuous">
+        <origin xyz="0.03 0.00065104 0" rpy="0 0 0"/>
+        <parent link="llink1"/>
+        <child link="llink2"/>
+        <axis xyz="0 0 1"/>
+        <limit effort="300" velocity="1" lower="${M_PI/2}" upper="0"/>
+        <mimic joint="gripper_joint" multiplier="1"/>
+    </joint>
+    <xacro:mimic_joint_plugin_gazebo name_prefix="llink_joint2"
+    parent_joint="gripper_joint" mimic_joint="llink_joint2"
+    has_pid="false" multiplier="1.0" max_effort="10.0" />
+    <link name="llink3">
+        <visual>
+            <origin xyz="0 0 0" rpy="0 0 0"/>
+            <geometry>
+                <mesh filename="package://dofbot_description/meshes/visual/llink3.STL"/>
+            </geometry>
+            <material name="">
+                <color rgba="0 0.7 0 1"/>
+            </material>
+        </visual>
+        <collision>
+            <origin xyz="0 0 0" rpy="0 0 0"/>
+            <geometry>
+                <mesh filename="package://dofbot_description/meshes/collision/llink3.STL"/>
+            </geometry>
+        </collision>
+        <xacro:inertial_matrix mass="${MATTER_MASS}"/>
+    </link>
+    <joint name="llink_joint3" type="continuous">
+        <origin xyz="-0.0035 0.0045 -0.0505" rpy="0 -1.5708 0"/>
+        <parent link="wrist_rot_link"/>
+        <child link="llink3"/>
+        <axis xyz="0 0 1"/>
+        <limit effort="300" velocity="1" lower="-${M_PI/2}" upper="0"/>
+        <mimic joint="gripper_joint" multiplier="-1"/>
+    </joint>
+    <xacro:mimic_joint_plugin_gazebo name_prefix="llink_joint3"
+    parent_joint="gripper_joint" mimic_joint="llink_joint3"
+    has_pid="false" multiplier="-1.0" max_effort="10.0" /-->
+
+
+    <!-- transmission block -->
+    <xacro:transmission_block joint_name="arm_joint1"/>
+    <xacro:transmission_block joint_name="shoulder_joint"/>
+    <xacro:transmission_block joint_name="elbow_joint"/>
+    <xacro:transmission_block joint_name="wrist_flex_joint"/>
+    <xacro:transmission_block joint_name="wrist_rot_joint"/>
+    <xacro:transmission_block joint_name="gripper_joint"/>
+    <!--xacro:transmission_block joint_name="finger_joint2"/-->
+
+    <!--xacro:base name="base"/>
+    <xacro:arm parent="base"/>
+    <xacro:gripper parent="tool"/-->
+
+    <!-- ros_control plugin -->
+    
+
+</robot>

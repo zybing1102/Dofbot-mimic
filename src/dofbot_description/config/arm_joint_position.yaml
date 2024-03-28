@@ -1,0 +1,29 @@
+as_arm:
+  # Position Controllers ---------------------------------------
+  joint1_position_controller:
+    type: effort_controllers/JointPositionController
+    joint: arm_joint1
+    pid: {p: 100.0, i: 0.01, d: 10.0}
+  joint2_position_controller:
+    type: effort_controllers/JointPositionController
+    joint: shoulder_joint
+    pid: {p: 100.0, i: 0.01, d: 10.0}
+  joint3_position_controller:
+    type: effort_controllers/JointPositionController
+    joint: elbow_joint
+    pid: {p: 100.0, i: 0.01, d: 10.0}
+  joint4_position_controller:
+    type: effort_controllers/JointPositionController
+    joint: wrist_flex_joint
+    pid: {p: 100.0, i: 0.01, d: 10.0}
+  joint5_position_controller:
+    type: effort_controllers/JointPositionController
+    joint: wrist_rot_joint
+    pid: {p: 100.0, i: 0.01, d: 10.0}
+  gripper_position_controller:
+    type: effort_controllers/JointPositionController
+    joint: gripper_joint
+    pid: {p: 100.0, i: 0.01, d: 10.0}
+  
+
+ 

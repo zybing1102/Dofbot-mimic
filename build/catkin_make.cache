@@ -1,0 +1,2 @@
+dofbot_description:dofbot_movit_config:roboticsgroup_gazebo_plugins-master:tutor
+-DCATKIN_DEVEL_PREFIX=/home/ros/arms/devel -DCMAKE_INSTALL_PREFIX=/home/ros/arms/install -G Unix Makefiles

@@ -1,0 +1,33 @@
+<?xml version="1.0"?>
+  <launch>
+
+   <!-- 此处为启动gazebo时需要设置的参数，一般无需修改 -->
+   <arg name="paused" default="false"/>
+   <arg name="use_sim_time" default="true"/>
+   <arg name="gui" default="true"/>
+   <arg name="headless" default="false"/>
+   <arg name="debug" default="false"/>
+   <arg name="gazebo_gui" default="true"/>
+
+  <!-- startup simulated world -->
+  <include file="$(find gazebo_ros)/launch/empty_world.launch">
+    <arg name="world_name" default="worlds/empty.world"/>
+     <arg name="debug" value="$(arg debug)"/>
+     <arg name="gui" value="$(arg gui)"/>
+     <arg name="paused" value="$(arg paused)"/>
+     <arg name="use_sim_time" value="$(arg use_sim_time)"/>
+     <arg name="headless" value="$(arg headless)"/>
+  </include>
+
+  <param name="robot_description" command="$(find xacro)/xacro $(find dofbot_description)/urdf/dofbot.gazebo.urdf.xacro " />
+  <node name="urdf_spawner" pkg="gazebo_ros" type="spawn_model" respawn="false" output="screen"
+          args="-urdf -model as_arm -param robot_description"/>
+
+  <!--node pkg="gazebo_ros" type="spawn_model" name="spawn_urdf"  respawn="false" output="screen"
+        args="-urdf -model dofbot  -param robot_description" /-->
+  <!--node name="spawn_gazebo_model" pkg="gazebo_ros" type="spawn_model" args="-urdf -param robot_description -model robot -x 0 -y 0 -z 0"
+    respawn="false" output="screen" /-->
+
+  <!--include file="$(find dofbot_movit_config)/launch/ros_controllers.launch"/-->
+
+</launch>
